@@ -1,6 +1,6 @@
 local player = ...
 
-return Def.ActorFrame{
+local af = Def.ActorFrame{
 	Name="Pane1",
 
 	-- labels like "FANTASTIC", "MISS", "holds", "rolls", etc.
@@ -8,7 +8,10 @@ return Def.ActorFrame{
 
 	-- DP score displayed as a percentage
 	LoadActor("./Percentage.lua", player),
-
+	
 	-- numbers (how many Fantastics? How many misses? etc.)
-	LoadActor("./JudgmentNumbers.lua", player),
-}
+	LoadActor("./JudgmentNumbers.lua", player)
+
+}	
+
+return af

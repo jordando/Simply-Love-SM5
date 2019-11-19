@@ -11,7 +11,8 @@ local pane_width, pane_height = 300, 180
 local abbreviations = {
 	ITG = { "Fan", "Ex", "Gr", "Dec", "WO" },
 	["FA+"] = { "Fan", "Fan", "Ex", "Gr", "Dec" },
-	StomperZ = { "Perf", "Gr", "Good", "Hit", "" }
+	StomperZ = { "Perf", "Gr", "Good", "Hit", "" },
+	Experiment = { "Fan", "Ex", "Gr", "Dec", "WO" },
 }
 
 -- ---------------------------------------------
