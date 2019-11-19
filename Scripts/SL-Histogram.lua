@@ -20,7 +20,7 @@ NPS_Histogram = function(player, _w, _h)
 				Steps = GAMESTATE:GetCurrentSteps(player)
 				Song = GAMESTATE:GetCurrentSong()
 			end
-
+			
 			local PeakNPS, NPSperMeasure = GetNPSperMeasure(Song, Steps)
 			-- broadcast this for any other actors on the current screen that rely on knowing the peak nps
 			MESSAGEMAN:Broadcast("PeakNPSUpdated", {PeakNPS=PeakNPS})
@@ -89,12 +89,19 @@ NPS_Histogram = function(player, _w, _h)
 	end
 	amv.CurrentSongChangedMessageCommand=function(self)
 		SongNumberInCourse = SongNumberInCourse + 1
-
 		-- we've reached a new song, so reset the vertices for the density graph
 		-- this will occur at the start of each new song in CourseMode
 		-- and at the start of "normal" gameplay
-		amv:Initialize(self)
+		if GAMESTATE:IsCourseMode() and GAMESTATE:GetCurrentTrail(player):GetTrailEntries()[SongNumberInCourse]:GetSong() or GAMESTATE:GetCurrentSong() then
+			self:diffusealpha(1)
+			self:queuecommand("StepsHaveChanged") --not sure why but steps weren't changing properly in this command so we just run StepsHaveChanged command instead
+		else
+			--hide the histogram when we're not looking at a song
+			self:diffusealpha(0)
+		end
 	end
-
+	amv.StepsHaveChangedMessageCommand=function(self) amv:Initialize(self) end
+	amv.StepsHaveChangedCommand=function(self) amv:Initialize(self) end																																			  
+	amv.OnCommand=function(self) amv:Initialize(self) end																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																			
 	return amv
 end

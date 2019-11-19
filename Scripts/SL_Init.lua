@@ -64,6 +64,18 @@ local GlobalDefaults = {
 		-- since the initialize() function is called every game cycle, the idea
 		-- is to define variables we want to reset every game cycle inside
 		initialize = function(self)
+			self.ActiveFilters = {
+				MinJumps = "Off",
+				MaxJumps = "Off",
+				MinSteps = "Off",
+				MaxSteps = "Off",
+				MinDifficulty = "Off",
+				MaxDifficulty = "Off",
+				HidePassed = false,
+				HideFailed = false,
+				HideUnplayed = false,
+				HideTags = {},
+			}
 			self.ActiveModifiers = {
 				MusicRate = 1.0,
 				WorstTimingWindow = 5,
@@ -93,11 +105,20 @@ local GlobalDefaults = {
 			self.TimeAtSessionStart = nil
 
 			self.GameplayReloadCheck = false
+			self.GoToOptions = false
+			self.ActivePlayerOptionsPane = 0
+			self.GroupType = "Group"
+			self.GroupToSong = false
 		end,
 
 		-- These values outside initialize() won't be reset each game cycle,
 		-- but are rather manipulated as needed by the theme.
 		ActiveColorIndex = ThemePrefs.Get("SimplyLoveColor") or 1,
+		DifficultyGroup = 1, --used when we're in difficulty sort to keep the correct difficulty defaulted
+		GradeGroup = "No_Grade", --used when we're in grade sort to keep the correct grade defaulted
+		LastSeenSong = nil, --set in SongMT transform. used to keep track of the last song when we're on "Close This Folder"
+		LastSongPlayedName = nil, --set by SL-CustomProfiles.lua every time profile is saved
+		LastSongPlayedGroup = nil,--set by SL-CustomProfiles.lua every time profile is saved
 	}
 }
 
@@ -132,6 +153,14 @@ SL = {
 			color("#ff0000")	-- red
 		},
 		ITG = {
+			color("#21CCE8"),	-- blue
+			color("#e29c18"),	-- gold
+			color("#66c955"),	-- green
+			color("#5b2b8e"),	-- purple
+			color("#c9855e"),	-- peach?
+			color("#ff0000")	-- red
+		},
+		Experiment = {
 			color("#21CCE8"),	-- blue
 			color("#e29c18"),	-- gold
 			color("#66c955"),	-- green
@@ -178,6 +207,26 @@ SL = {
 			TimingWindowSecondsRoll=0.350000,
 		},
 		ITG = {
+			TimingWindowAdd=0.0015,
+			RegenComboAfterMiss=5,
+			MaxRegenComboAfterMiss=10,
+			MinTNSToHideNotes="TapNoteScore_W3",
+			HarshHotLifePenalty=1,
+
+			PercentageScoring=1,
+			AllowW1="AllowW1_Everywhere",
+			SubSortByNumSteps=1,
+
+			TimingWindowSecondsW1=0.021500,
+			TimingWindowSecondsW2=0.043000,
+			TimingWindowSecondsW3=0.102000,
+			TimingWindowSecondsW4=0.135000,
+			TimingWindowSecondsW5=0.180000,
+			TimingWindowSecondsHold=0.320000,
+			TimingWindowSecondsMine=0.070000,
+			TimingWindowSecondsRoll=0.350000,
+		},
+		Experiment = {
 			TimingWindowAdd=0.0015,
 			RegenComboAfterMiss=5,
 			MaxRegenComboAfterMiss=10,
@@ -301,6 +350,37 @@ SL = {
 			LifePercentChangeHeld=IsGame("pump") and 0.000 or 0.008,
 			LifePercentChangeHitMine=-0.050,
 		},
+		Experiment = {
+			PercentScoreWeightW1=5,
+			PercentScoreWeightW2=4,
+			PercentScoreWeightW3=2,
+			PercentScoreWeightW4=0,
+			PercentScoreWeightW5=-6,
+			PercentScoreWeightMiss=-12,
+			PercentScoreWeightLetGo=0,
+			PercentScoreWeightHeld=5,
+			PercentScoreWeightHitMine=-6,
+
+			GradeWeightW1=5,
+			GradeWeightW2=4,
+			GradeWeightW3=2,
+			GradeWeightW4=0,
+			GradeWeightW5=-6,
+			GradeWeightMiss=-12,
+			GradeWeightLetGo=0,
+			GradeWeightHeld=5,
+			GradeWeightHitMine=-6,
+
+			LifePercentChangeW1=0.008,
+			LifePercentChangeW2=0.008,
+			LifePercentChangeW3=0.004,
+			LifePercentChangeW4=0.000,
+			LifePercentChangeW5=-0.050,
+			LifePercentChangeMiss=-0.100,
+			LifePercentChangeLetGo=IsGame("pump") and 0.000 or -0.080,
+			LifePercentChangeHeld=IsGame("pump") and 0.000 or 0.008,
+			LifePercentChangeHitMine=-0.050,
+		},
 		["FA+"] = {
 			PercentScoreWeightW1=5,
 			PercentScoreWeightW2=5,
@@ -363,7 +443,33 @@ SL = {
 			LifePercentChangeHeld=0,
 			LifePercentChangeHitMine=-0.04,
 		},
-	}
+	},
+	GroupNames = {
+		Grade = {
+			Grade_Tier01="100%",
+			Grade_Tier02="99%",
+			Grade_Tier03="98%",
+			Grade_Tier04="96%",
+			Grade_Tier05="Grade: S+",
+			Grade_Tier06="Grade: S",
+			Grade_Tier07="Grade: S-",
+			Grade_Tier08="Grade: A+",
+			Grade_Tier09="Grade: A",
+			Grade_Tier10="Grade: A-",
+			Grade_Tier11="Grade: B+",
+			Grade_Tier12="Grade: B",
+			Grade_Tier13="Grade: B-",
+			Grade_Tier14="Grade: C+",
+			Grade_Tier15="Grade: C",
+			Grade_Tier16="Grade: C-",
+			Grade_Tier17="Grade: D",
+			Grade_Tier18="Grade: F",
+			Grade_Tier19="Grade: F",
+			Grade_Tier20="Grade: F",
+			Grade_Failed="Grade: F",
+			No_Grade="No Grade",
+		},
+	},
 }
 
 

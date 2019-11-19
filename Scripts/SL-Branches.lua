@@ -6,6 +6,8 @@ SelectMusicOrCourse = function()
 	else
 		if SL.Global.GameMode == "Casual" then
 			return "ScreenSelectMusicCasual"
+		elseif SL.Global.GameMode == "Experiment" then
+			return "ScreenSelectMusicExperiment"
 		end
 
 		return "ScreenSelectMusic"
@@ -13,7 +15,11 @@ SelectMusicOrCourse = function()
 end
 
 Branch.AllowScreenSelectProfile = function()
-	if ThemePrefs.Get("AllowScreenSelectProfile") then
+	if ThemePrefs.Get("GoStraightToGameplay") then --we want to skip everything and go straight to ScreenSelectMusic
+		local preferred_style = ThemePrefs.Get("AutoStyle") --style still needs to be set. Defaults to single if there's no preference.
+		GAMESTATE:SetCurrentStyle( preferred_style ~= "none" and preferred_style or "single" )
+		return "ScreenProfileLoad"
+	elseif ThemePrefs.Get("AllowScreenSelectProfile") then
 		return "ScreenSelectProfile"
 	else
 		return Branch.AllowScreenSelectColor()
@@ -102,6 +108,21 @@ end
 
 Branch.AfterSelectMusic = function()
 	if SCREENMAN:GetTopScreen():GetGoToOptions() then
+		return "ScreenPlayerOptions"
+	else
+		-- routine mode specifically uses ScreenGameplayShared
+		local style = GAMESTATE:GetCurrentStyle():GetName()
+		if style == "routine" then
+			return "ScreenGameplayShared"
+		end
+
+		-- while everything else (single, versus, double, etc.) uses ScreenGameplay
+		return "ScreenGameplay"
+	end
+end
+
+Branch.AfterSelectMusicExperiment = function()
+	if SL.Global.GoToOptions then
 		return "ScreenPlayerOptions"
 	else
 		-- routine mode specifically uses ScreenGameplayShared
@@ -258,3 +279,5 @@ Branch.AfterProfileSaveSummary = function()
 		return Branch.AfterInit()
 	end
 end
+
+	

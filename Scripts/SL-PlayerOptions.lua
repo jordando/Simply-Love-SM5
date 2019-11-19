@@ -7,7 +7,6 @@ local function GetModsAndPlayerOptions(player)
 	local topscreen = SCREENMAN:GetTopScreen():GetName()
 	local modslevel = topscreen  == "ScreenEditOptions" and "ModsLevel_Stage" or "ModsLevel_Preferred"
 	local playeroptions = GAMESTATE:GetPlayerState(player):GetPlayerOptions(modslevel)
-
 	return mods, playeroptions
 end
 
