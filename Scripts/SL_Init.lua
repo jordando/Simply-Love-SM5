@@ -105,10 +105,11 @@ local GlobalDefaults = {
 			self.TimeAtSessionStart = nil
 
 			self.GameplayReloadCheck = false
-			self.GoToOptions = false
+			self.GoToOptions = false --when two tap to enter options is turned on this is used
 			self.ActivePlayerOptionsPane = 0
-			self.GroupType = "Group"
-			self.GroupToSong = false
+			self.GroupType = "Group" --keep track of what group sort we're currently using
+			self.GroupToSong = false --keep track of when we're going from group view to song view for music preview purposes
+			self.Order = "Alphabetical"
 		end,
 
 		-- These values outside initialize() won't be reset each game cycle,
@@ -117,6 +118,7 @@ local GlobalDefaults = {
 		DifficultyGroup = 1, --used when we're in difficulty sort to keep the correct difficulty defaulted
 		GradeGroup = "No_Grade", --used when we're in grade sort to keep the correct grade defaulted
 		LastSeenSong = nil, --set in SongMT transform. used to keep track of the last song when we're on "Close This Folder"
+		LastSeenIndex = 0, --set in SongMT transform. used in place of LastSeenSong if the same song appears twice in a row (due to difficulty/bpm order)
 		LastSongPlayedName = nil, --set by SL-CustomProfiles.lua every time profile is saved
 		LastSongPlayedGroup = nil,--set by SL-CustomProfiles.lua every time profile is saved
 	}

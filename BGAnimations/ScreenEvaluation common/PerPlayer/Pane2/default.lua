@@ -1,7 +1,7 @@
 local player = ...
 local game = GAMESTATE:GetCurrentGame():GetName()
 
-local af = Def.ActorFrame{
+return Def.ActorFrame{
 	Name="Pane2",
 	-- ExpandForDoubleCommand() does not do anything here, but we check for its presence in
 	-- this ActorFrame in ./InputHandler to determine which panes to expand the background for
@@ -17,11 +17,9 @@ local af = Def.ActorFrame{
 		end
 
 		self:visible(false)
-	end
+	end,
+
+	LoadActor("./Percentage.lua", player),
+	LoadActor("./JudgmentLabels.lua", player),
+	LoadActor("./Arrows.lua", player)
 }
-
-af[#af+1] = LoadActor("./Percentage.lua", player)
-af[#af+1] = LoadActor("./JudgmentLabels.lua", player)
-af[#af+1] = LoadActor("./Arrows.lua", player)
-
-return af
