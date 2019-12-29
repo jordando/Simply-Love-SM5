@@ -53,25 +53,25 @@ local PreloadedGroups = {}
 
 -- A table of tagged songs loaded from Other/TaggedSongs.txt
 -- Each item in the table is a table with the following items: customGroup, title, actualGroup
--- TODO change customGroup to tagName or something like that
 local TaggedSongs = {} 
 
 -- Returns nil if the song has no tags or the name of the first tag it finds
 -- If given a group parameter it will only return something if the song has that specific tag
--- TODO if a song is in multiple groups it will just return the first one it finds. Probably go through everything and put all results in a table instead
 -- TODO take out custom song stuff and switch to tagName or something
-function IsTaggedSong(song, group)
+function GetTags(song, group)
 	local current_song = song
+	local tags = {}
 	for customSong in ivalues(TaggedSongs) do
 		if current_song:GetMainTitle() ==  customSong['title'] and current_song:GetGroupName() == customSong['actualGroup'] then
 			if group then
-				if group == customSong['customGroup'] then return customSong['customGroup'] end
+				if group == customSong['customGroup'] then tags[#tags+1] = customSong['customGroup'] end
 			else
-				return customSong['customGroup']
+				tags[#tags+1] = customSong['customGroup']
 			end
 		end
 	end
-	return nil
+	if #tags > 0 then return tags
+	else return nil end
 end
 	
 ---------------------------------------------------------------------------
@@ -150,6 +150,7 @@ local function LoadTags()
 		table.insert(SortGroups.Tag, name)
 	end
 	table.insert(SortGroups.Tag, "No Tags Set")
+	table.insert(SortGroups.Tag, "BPM Changes")
 end
 
 -- Write whatever is in SortGroups.Tag to Tags.txt
@@ -219,7 +220,7 @@ function RemoveTaggedSong(toRemove, song)
 	SaveTaggedSongs()
 	PreloadedGroups["Tag"][tostring(toRemove[1])] = CreateSongList(tostring(toRemove[1]),"Tag")
 	--if this song no longer has any tags then add it to "No Tags Set"
-	if not IsTaggedSong(song) then table.insert(PreloadedGroups["Tag"]["No Tags Set"],song) end
+	if not GetTags(song) then table.insert(PreloadedGroups["Tag"]["No Tags Set"],song) end
 end
 
 -- To keep load times down we only want to create groups once. However, tag groups and grade groups are not static.
@@ -245,16 +246,15 @@ function UpdateGradeGroups(song)
 	-- next add it to all relevant groups
 	local isPlayed = false
 	for steps in ivalues(current_song:GetStepsByStepsType(GetStepsType())) do
-		local highScore = PROFILEMAN:GetProfile(0):GetHighScoreList(current_song,steps):GetHighScores()[1]
-		if highScore then
-			if highScore:GetGrade() then --TODO this won't work for player 2!
+		local highScore = PROFILEMAN:GetProfile(GAMESTATE:GetMasterPlayerNumber()):GetHighScoreList(current_song,steps):GetHighScores()[1]
+		if highScore then --TODO this only checks for the master player. Maybe it should set both groups?
+			if highScore:GetGrade() then 
 				table.insert(PreloadedGroups["Grade"][tostring(highScore:GetGrade())],current_song)
 				isPlayed = true
 			end
 		end
 	end
-	-- TODO this is dumb because we just tried to take it out of No_Grade so really we should check there
-	-- but i'm lazy and it's easier to just add it back in down here...
+	--if we didn't find any charts with high scores than isPlayed will stay false and we can add it to No_Grade
 	if not isPlayed then table.insert(PreloadedGroups["Grade"]["No_Grade"],current_song) end
 end
 
@@ -276,6 +276,23 @@ GetStepsType = function()
 	-- techno is a special case with steps_type like "StepsType_Techno_Single8"
 	if game_name == "techno" then steps_type = steps_type.."8" end
 	return steps_type
+end
+
+---------------------------------------------------------------------------
+-- prune out groups that have no valid steps
+-- passed an indexed table of strings representing potential group names
+-- returns an indexed table of group names as strings
+
+PruneGroups = function(_groups)
+	local groups = {}
+	local songs
+	for group in ivalues( _groups ) do
+		songs = PruneSongList(GetSongList(group))
+		if #songs > 0 then
+			groups[#groups+1] = group
+		end
+	end
+	return groups
 end
 
 -- for the groups that are just numbers (Length, BPM) or ugly enums (Grade) we want to make it more descriptive
@@ -300,6 +317,7 @@ end
 -- Called by __index InitCommand in GroupMT.lua (ScreenSelectMusicExperiment overlay)
 -- Returns a string containing the group the current song is part of
 GetCurrentGroup = function()
+	local mpn = GAMESTATE:GetMasterPlayerNumber()
 	--no song if we're on Close This Folder so use the last seen song
 	local current_song = GAMESTATE:GetCurrentSong() or SL.Global.LastSeenSong
 	local starting_group = current_song:GetMainTitle()
@@ -311,7 +329,7 @@ GetCurrentGroup = function()
 		else
 			starting_group = string.sub(starting_group, 1, 1)
 		end
-	elseif SL.Global.GroupType == "Tag" then starting_group = IsTaggedSong(current_song) or "No Tags Set"
+	elseif SL.Global.GroupType == "Tag" then starting_group = GetTags(current_song) and GetTags(current_song)[1] or "No Tags Set" --TODO if song is in multiple tags this just grabs the first
 	elseif SL.Global.GroupType == "Group" then starting_group = current_song:GetGroupName()
 	elseif SL.Global.GroupType == "BPM" then 
 		local speed = current_song:GetDisplayBpms()[2]
@@ -326,9 +344,9 @@ GetCurrentGroup = function()
 		elseif starting_group > 10 then starting_group = 10
 		end
 	elseif SL.Global.GroupType == "Difficulty" then
-		starting_group = GAMESTATE:GetCurrentSteps('PlayerNumber_P1'):GetMeter() --TODO this won't work for player 2!
+		starting_group = GAMESTATE:GetCurrentSteps(mpn):GetMeter() --TODO this only works for the master player.
 	elseif SL.Global.GroupType == "Grade" then
-		local highScore = PROFILEMAN:GetProfile(0):GetHighScoreList(current_song,GAMESTATE:GetCurrentSteps(0)):GetHighScores()[1]
+		local highScore = PROFILEMAN:GetProfile(mpn):GetHighScoreList(current_song,GAMESTATE:GetCurrentSteps(mpn)):GetHighScores()[1]
 		if highScore then starting_group = highScore:GetGrade()
 		else starting_group = "No_Grade" end
 	else starting_group = current_song:GetGroupName() end
@@ -341,10 +359,11 @@ end
 GetGroupIndex = function(groups)
 	local group_index = 1
 	local current_song = GAMESTATE:GetCurrentSong() or SL.Global.LastSeenSong
+	local mpn = GAMESTATE:GetMasterPlayerNumber()
 	for k,group in ipairs(groups) do
 		if SL.Global.GroupType == "Tag" then
-			if IsTaggedSong(current_song) == group then group_index = k
-			elseif group == "No Tags Set" and not IsTaggedSong(current_song) then group_index = k end
+			if GetTags(current_song, group) then group_index = k
+			elseif group == "No Tags Set" and not GetTags(current_song) then group_index = k end
 		elseif SL.Global.GroupType == "Group" then
 			if current_song:GetGroupName() == group then
 				group_index = k
@@ -377,15 +396,15 @@ GetGroupIndex = function(groups)
 				group_index = k
 			end
 		elseif SL.Global.GroupType == "Difficulty" then
-			if tonumber(group) == GAMESTATE:GetCurrentSteps('PlayerNumber_P1'):GetMeter() then --TODO this won't work for player 2!
+			if tonumber(group) == GAMESTATE:GetCurrentSteps(mpn):GetMeter() then --TODO this only works for the master player.
 				group_index = k
-			elseif tonumber(group) > 25 and GAMESTATE:GetCurrentSteps('PlayerNumber_P1'):GetMeter() > 25 then
+			elseif tonumber(group) > 25 and GAMESTATE:GetCurrentSteps(mpn):GetMeter() > 25 then
 				group_index = k
 			end
 		elseif SL.Global.GroupType == "Grade" then
-			local highScore = PROFILEMAN:GetProfile(0):GetHighScoreList(current_song,GAMESTATE:GetCurrentSteps(0)):GetHighScores()[1]
+			local highScore = PROFILEMAN:GetProfile(mpn):GetHighScoreList(current_song,GAMESTATE:GetCurrentSteps(mpn)):GetHighScores()[1]
 			if highScore then 
-				if group == highScore:GetGrade() then --TODO this won't work for player 2!
+				if group == highScore:GetGrade() then --TODO this only works for the master player.
 					group_index = k
 				end
 			else
@@ -415,9 +434,12 @@ local CreateGroup = Def.ActorFrame{
 		for song in ivalues(SONGMAN:GetAllSongs()) do
 			-- this should be guaranteed by this point, but better safe than segfault
 			if song:HasStepsType(GetStepsType()) then
-				if not IsTaggedSong(song) then if group == "No Tags Set" then songs[#songs+1] = song end
+				if group == "BPM Changes" then
+					if song:HasSignificantBPMChangesOrStops() then songs[#songs+1] = song end
+				elseif group == "No Tags Set" then 
+					if not GetTags(song) and not song:HasSignificantBPMChangesOrStops() then songs[#songs+1] = song end
 				else
-					if IsTaggedSong(song, group) then
+					if GetTags(song, group) then
 						songs[#songs+1] = song
 					end
 				end
@@ -430,16 +452,17 @@ local CreateGroup = Def.ActorFrame{
 	-- provided a group title as a string, make a list of songs that fit that group
 	-- returns an indexed table of song objects
 	Grade = function(group)
+		local mpn = GAMESTATE:GetMasterPlayerNumber()
 		local songs = {}
 		for song in ivalues(SONGMAN:GetAllSongs()) do
 			local played = false
 			-- this should be guaranteed by this point, but better safe than segfault
 			if song:HasStepsType(GetStepsType()) then
 				for steps in ivalues(song:GetStepsByStepsType(GetStepsType())) do
-					local highScore = PROFILEMAN:GetProfile(0):GetHighScoreList(song,steps):GetHighScores()[1]
+					local highScore = PROFILEMAN:GetProfile(mpn):GetHighScoreList(song,steps):GetHighScores()[1]
 					if highScore then
 						played = true
-						if highScore:GetGrade() == group then --TODO this won't work for player 2!
+						if highScore:GetGrade() == group then --TODO this only works for the master player.
 							songs[#songs+1] = song
 							break
 						end
@@ -624,7 +647,9 @@ CreateSpecialSongList = function(songList)
 	DifficultyBPM = {}
 	for song in ivalues(songList) do
 		for i = 1,#song:GetStepsByStepsType(GetStepsType()) do
-			table.insert(DifficultyBPM,{song=song,difficulty=song:GetStepsByStepsType(GetStepsType())[i]:GetMeter(),bpm=song:GetDisplayBpms()[2]})
+			if ValidateChart(song,song:GetStepsByStepsType(GetStepsType())[i]) then
+				table.insert(DifficultyBPM,{song=song,difficulty=song:GetStepsByStepsType(GetStepsType())[i]:GetMeter(),bpm=song:GetDisplayBpms()[2]})
+			end
 		end
 	end
 	table.sort(DifficultyBPM, GetSortFunction())

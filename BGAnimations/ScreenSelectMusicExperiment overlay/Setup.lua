@@ -70,9 +70,9 @@ end
 -- returns a song object
 
 local GetDefaultSong = function()
-	--TODO this only works for player one. And if there are two songs with the same name in the same group it'll pick the first
-	--Try to grab the last played song on the profile for player one
-	local profile = PROFILEMAN:GetProfile('PlayerNumber_P1')
+	--TODO If there are two songs with the same name in the same group it'll pick the first - does this ever happen?
+	--Try to grab the last played song on the profile for master player
+	local profile = PROFILEMAN:GetProfile(GAMESTATE:GetMasterPlayerNumber())
 	--if they haven't used Experiment mode before than last song won't be set so default to the first song
 	if profile and SL.Global.LastSongPlayedName then
 		local t = SONGMAN:GetSongsInGroup(SL.Global.LastSongPlayedGroup)
@@ -82,25 +82,8 @@ local GetDefaultSong = function()
 			end
 		end
 	end
-	-- fall back on first valid song from first valid group if needed
+	-- fall back on first song from all songs if needed
 	return SONGMAN:GetAllSongs()[1]
-end
-
----------------------------------------------------------------------------
--- prune out groups that have no valid steps
--- passed an indexed table of strings representing potential group names
--- returns an indexed table of group names as strings
-
-local PruneGroups = function(_groups)
-	local groups = {}
-	local songs
-	for group in ivalues( _groups ) do
-		songs = PruneSongList(GetSongList(group))
-		if #songs > 0 then
-			groups[#groups+1] = group
-		end
-	end
-	return groups
 end
 
 ---------------------------------------------------------------------------
@@ -120,6 +103,16 @@ local InitGroups = function()
 end
 
 ---------------------------------------------------------------------------
+-- Info used on the group wheel about each group
+-- Structure:
+-- info[group].num_songs = number of songs in a group
+-- info[group].max_num = highest number of charts in any difficulty
+-- info[group].filtered_charts = number of charts hidden due to filters
+-- info[group]['UnsortedLevel'][{difficultyBlock}] = number of charts in each difficulty block
+-- info[group]['UnsortedPassedLevel'][difficultyBlock] = number of charts with the given difficulty passed by master player
+-- info[group]['Level'][difficultyBlock][{difficulty,num_songs}] = sorted list of number of passed songs in each difficulty block
+-- info[group]['PassedLevel'][difficultyBlock][{difficulty,num_songs}] = sorted list of number of passed songs in each difficulty block
+-- info[group].charts = String listing number of charts per difficulty level
 
 local GetGroupInfo = function()
 	local groups = PruneGroups(GetGroups())
@@ -138,10 +131,11 @@ local GetGroupInfo = function()
 				for steps in ivalues(song:GetStepsByStepsType(GetStepsType())) do
 					--if the chart passes filters, add to our list of charts
 					if ValidateChart(song, steps) then 
+						--add chart to info[group][difficultyBlock]
 						info[group]['UnsortedLevel'][tostring(steps:GetMeter())] = 1 + (tonumber(info[group]['UnsortedLevel'][tostring(steps:GetMeter())]) or 0)
-						local highScore = PROFILEMAN:GetProfile(0):GetHighScoreList(song,steps):GetHighScores()[1]
-							if highScore then
-								if highScore:GetGrade() and Grade:Reverse()[highScore:GetGrade()] < 17 then --TODO this won't work for player 2!
+						local highScore = PROFILEMAN:GetProfile(GAMESTATE:GetMasterPlayerNumber()):GetHighScoreList(song,steps):GetHighScores()[1]
+							if highScore then --TODO this only shows stats for the master player. Maybe it should show for both players?
+								if highScore:GetGrade() and Grade:Reverse()[highScore:GetGrade()] < 17 then 
 									info[group]['UnsortedPassedLevel'][tostring(steps:GetMeter())] = 1 + (tonumber(info[group]['UnsortedPassedLevel'][tostring(steps:GetMeter())]) or 0)
 								end
 							end
@@ -177,9 +171,9 @@ if not GAMESTATE:GetCurrentSong() then
 	GAMESTATE:SetCurrentSong(current_song)
 	GAMESTATE:SetCurrentSteps(0,GAMESTATE:GetCurrentSong():GetAllSteps()[1])
 	InitPreloadedGroups()
+else
 -- Otherwise if the player got a new high grade then we need to remake the relevant grade groups
 -- TODO right now this doesn't check if they got a highscore, it just makes new groups.
-else
 	UpdateGradeGroups(GAMESTATE:GetCurrentSong())
 end
 

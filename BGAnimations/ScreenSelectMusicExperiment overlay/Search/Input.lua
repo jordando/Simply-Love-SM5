@@ -6,17 +6,22 @@ local mpn = GAMESTATE:GetMasterPlayerNumber()
 
 local Handle = {}
 
--- When the player hits start on the CustomSongMenu they want to either add or remove a song from a custom group.
+-- When the player hits start on the searchResults menu they want to jump to the song/group or exit
 Handle.Start = function(event)
 	local topscreen = SCREENMAN:GetTopScreen()
 	if GAMESTATE:IsHumanPlayer(event.PlayerNumber) then
-		MESSAGEMAN:Broadcast("StartButton")
 		-- first figure out which group we're dealing with
 		local info = scrollers[event.PlayerNumber]:get_info_at_focus_pos()
-		local index = type(info)=="table" and info.index or 0
-		SL.Global.Order = info.displayname
-		MESSAGEMAN:Broadcast("GroupTypeChanged") --the order of songs in a group may have changed so reset it
-		-- and queue the Finish for the menu
+		if info.type == "song" and GAMESTATE:GetCurrentSong() ~= info.song then
+			GAMESTATE:SetCurrentSong(info.song)
+			MESSAGEMAN:Broadcast("SetSongViaSearch") --heard by ScreenSelectMusicExperiment default.lua. Closes the group folder if we're on it
+		end
+		if info.group ~= "nothing" then
+			switch_to_songs(info.group)
+			SL.Global.CurrentGroup = info.group
+			MESSAGEMAN:Broadcast("GroupTypeChanged")
+		end
+		MESSAGEMAN:Broadcast("StartButton")
 		topscreen:queuecommand("Finish"):sleep(0.4)
 	end
 end
@@ -29,14 +34,14 @@ Handle.MenuLeft = function(event)
 		local info = scrollers[event.PlayerNumber]:get_info_at_focus_pos()
 		-- We add a bunch of empty rows to the table so that the first custom group is the default
 		-- and it's centered on the screen. We don't want to be able to scroll to them however.
-		-- To get around that, each actual group has an index parameter that we set to be non zero
-		-- and then just don't scroll to 0 or lower
+		-- To get around that, each actual group has an index parameter
+		-- and then just don't scroll to to the first 3 filler rows
 		local index = type(info)=="table" and info.index or 0
-		if index - 1 > 0 then
+		if index - 1 >= 4 then
 			MESSAGEMAN:Broadcast("DirectionButton")
 			scrollers[event.PlayerNumber]:scroll_by_amount(-1)
 			local frame = af:GetChild(ToEnumShortString(event.PlayerNumber) .. 'Frame')
-			frame:playcommand("Set", {index=index-1})
+			frame:playcommand("Set", {index=index})
 		end
 	end
 end
@@ -49,19 +54,20 @@ Handle.MenuRight = function(event)
 		local info = scrollers[event.PlayerNumber]:get_info_at_focus_pos()
 		-- We add a bunch of empty rows to the table so that the first custom group is the default
 		-- and it's centered on the screen. We don't want to be able to scroll to them however.
-		-- To get around that, each actual group has an index parameter that we set to be non zero
+		-- To get around that, each actual item has an index parameter
 		-- and then just don't scroll to 0 or lower
 		local index = type(info)=="table" and info.index or 0
-		if index + 1 <= 3 then
+		if info.type ~= "exit" then
 			MESSAGEMAN:Broadcast("DirectionButton")
 			scrollers[event.PlayerNumber]:scroll_by_amount(1)
 			local frame = af:GetChild(ToEnumShortString(event.PlayerNumber) .. 'Frame')
-			frame:playcommand("Set", {index=index+1})
+			frame:playcommand("Set", {index=index+2})
 		end
 	end
 end
 Handle.MenuDown = Handle.MenuRight
 Handle.DownRight = Handle.MenuRight
+
 
 Handle.Back = function(event)
 	local topscreen = SCREENMAN:GetTopScreen()

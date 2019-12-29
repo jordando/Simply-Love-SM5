@@ -54,6 +54,7 @@ local TextEntrySettings = {
 -- When the player hits start on the CustomSongMenu they want to either add or remove a song from a custom group.
 Handle.Start = function(event)
 	local topscreen = SCREENMAN:GetTopScreen()
+	MESSAGEMAN:Broadcast("StartButton")
 	if GAMESTATE:IsHumanPlayer(event.PlayerNumber) then
 		-- first figure out which group we're dealing with
 		local info = scrollers[event.PlayerNumber]:get_info_at_focus_pos()
@@ -65,7 +66,7 @@ Handle.Start = function(event)
 			local current_song = GAMESTATE:GetCurrentSong() or SL.Global.LastSeenSong
 			local group = GetGroups("Tag")[index]
 			-- figure out if the song is already in this group so we know whether to remove or add
-			local inGroup = IsTaggedSong(current_song, group)
+			local inGroup = GetTags(current_song, group)
 			local toAdd = GetGroups("Tag")[index].."\t"..current_song:GetMainTitle().."\t"..current_song:GetGroupName()
 			if not inGroup then AddTaggedSong(toAdd, current_song) SM("Added ["..current_song:GetMainTitle().."] to "..group)
 			else RemoveTaggedSong(toAdd, current_song) SM("Removed ["..current_song:GetMainTitle().."] from "..group)  end
@@ -134,7 +135,7 @@ Handle.Back = function(event)
 		topscreen:queuecommand("Finish"):sleep(0.4)
 	end
 end
-
+Handle.Select = Handle.Back
 
 local InputHandler = function(event)
 	if not event or not event.button then return false end

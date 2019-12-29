@@ -7,9 +7,6 @@ local col = args[4]
 local CloseFolderTexture = nil
 local NoJacketTexture = nil
 
--- max number of characters allowed in a song title before truncating to ellipsis
-local max_chars = 28
-
 local song_mt = {
 	__index = {
 		create_actors = function(self, name)
@@ -57,7 +54,7 @@ local song_mt = {
 					subself:visible(true):sleep(0.3):linear(0.2):diffusealpha(1)
 				end,
 				SlideToTopCommand=function(subself) subself:linear(0.2):xy(_screen.cx + 150, row.h+43) end,
-				SlideBackIntoGridCommand=function(subself) subself:linear(0.2):y( 300 ):x( _screen.w/1.5+25 )end,
+				SlideBackIntoGridCommand=function(subself) subself:linear(0.2):y( math.floor(13/2)*47 ):x( _screen.w/1.5+25 )end, --y = num_items/2 * 47
 
 				-- wrap the function that plays the preview music in its own Actor so that we can
 				-- call sleep() and queuecommand() and stoptweening() on it and not mess up other Actors
@@ -65,7 +62,6 @@ local song_mt = {
 					InitCommand=function(subself) self.preview_music = subself end,
 					PlayMusicPreviewCommand=function(subself) play_sample_music() end,
 				},
-
 				-- AF for MusicWheel item
 				Def.ActorFrame{
 					GainFocusCommand=function(subself) subself:y(0) end,
@@ -87,7 +83,7 @@ local song_mt = {
 					Def.ActorFrame {
 						SlideToTopCommand=function(subself) subself:linear(.12):diffusealpha(0):visible(false)  end,
 						SlideBackIntoGridCommand=function(subself) subself:linear(.12):diffusealpha(1):visible( true) end,
-						Def.Quad { InitCommand=function(subself) subself:zoomto(250,40):diffuse(.25,.25,.25,.25):diffusealpha(.5) end },
+						Def.Quad { InitCommand=function(subself) subself:zoomto(250,40):diffuse(.5,.5,.5,.5):diffusealpha(.5) end },
 						Def.Quad { InitCommand=function(self) self:zoomto(250-2, 40-2*2):MaskSource(true) end },
 						Def.Quad { InitCommand=function(self) self:zoomto(250,40):MaskDest() end },
 						Def.Quad { InitCommand=function(self) self:diffusealpha(0):clearzbuffer(true) end },
@@ -97,12 +93,20 @@ local song_mt = {
 						Font="Common Normal",
 						InitCommand=function(subself)
 							self.title_bmt = subself
-							subself:zoom(1):diffuse(Color.White):shadowlength(0.75)
+							subself:zoom(1):diffuse(Color.White):shadowlength(0.75):maxwidth(200)
 						end,
 						SlideToTopCommand=function(subself)
 							if self.song ~= "CloseThisFolder" then subself:zoom(1.5):maxwidth(125):settext( self.song:GetDisplayMainTitle()) end end,
 						SlideBackIntoGridCommand=function(subself) 
-							if self.song  ~= "CloseThisFolder" then subself:zoom(1):settext( self.song:GetDisplayMainTitle() ):Truncate(max_chars) end end,
+							if self.song  ~= "CloseThisFolder" then 
+								if SL.Global.Order == "Difficulty/BPM" then
+									local block = GetDifficultyBPM(self.index)
+									subself:settext( "["..block.difficulty.."]["..math.floor(block.bpm).."] "..self.song:GetDisplayMainTitle() ):maxwidth(200):zoom(1.2)
+								else
+									subself:settext( self.song:GetDisplayMainTitle() ):maxwidth(200):zoom(1.2)
+								end
+							end
+						end,
 						GainFocusCommand=function(subself) --make the words a little bigger to make it seem like they're popping out
 							if self.song == "CloseThisFolder" then
 								subself:zoom(1)
@@ -141,7 +145,6 @@ local song_mt = {
 		end,
 
 		transform = function(self, item_index, num_items, has_focus)
-		--TODO maybe make music not play in the sort menu?
 			self.container:finishtweening()
 			if has_focus then
 				if self.song ~= "CloseThisFolder" then
@@ -152,29 +155,34 @@ local song_mt = {
 					--or because we're initializing ScreenSelectMusicExperiment
 					if self.song ~= GAMESTATE:GetCurrentSong() or SL.Global.GroupToSong or self.index ~= SL.Global.LastSeenIndex then
 						GAMESTATE:SetCurrentSong(self.song)
+						SL.Global.SongTransition = true
 						MESSAGEMAN:Broadcast("CurrentSongChanged", {song=self.song, index=self.index})
+						MESSAGEMAN:Broadcast("BeginSongTransition") --See the MessageCommand in ScreenSelectMusicExperiment/default.lua for details
 						stop_music()
 						-- wait for the musicgrid to settle for at least 0.2 seconds before attempting to play preview music
 						self.preview_music:stoptweening():sleep(0.2):queuecommand("PlayMusicPreview")
 						SL.Global.GroupToSong = false
 						SL.Global.LastSeenIndex = self.index
-					else MESSAGEMAN:Broadcast("StepsHaveChanged") end
+					else MESSAGEMAN:Broadcast("StepsHaveChanged") MESSAGEMAN:Broadcast("LessLag") end
 				else
+					stop_music()
 					MESSAGEMAN:Broadcast("CloseThisFolderHasFocus")
 				end
 				self.container:playcommand("GainFocus")
 			else
 				self.container:playcommand("LoseFocus")
 			end
-			--change the Grade sprite 
+			--change the Grade sprite
+			--TODO this only shows grades for the master player. Maybe it should show for both players?
 			if self.song ~= "CloseThisFolder" then
+				local mpn = GAMESTATE:GetMasterPlayerNumber()
 				local current_difficulty
 				local grade
-				if GAMESTATE:GetCurrentSteps(0) then
-					current_difficulty = GAMESTATE:GetCurrentSteps(0):GetDifficulty() --are we looking at steps?
+				if GAMESTATE:GetCurrentSteps(mpn) then
+					current_difficulty = GAMESTATE:GetCurrentSteps(mpn):GetDifficulty() --are we looking at steps?
 				end
 				if current_difficulty and self.song:GetOneSteps(GetStepsType(),current_difficulty) then --does this song have steps in the correct difficulty?
-					grade = PROFILEMAN:GetProfile(0):GetHighScoreList(self.song,self.song:GetOneSteps(GetStepsType(),current_difficulty)):GetHighScores()[1] --TODO this only grabs scores for player one
+					grade = PROFILEMAN:GetProfile(mpn):GetHighScoreList(self.song,self.song:GetOneSteps(GetStepsType(),current_difficulty)):GetHighScores()[1] --TODO this only grabs scores for master player
 				end
 				if grade then
 					local converted_grade = Grade:Reverse()[grade:GetGrade()]
@@ -191,7 +199,7 @@ local song_mt = {
 			end
 			
 			--handle row hiding
-			if item_index == 1 or item_index > num_items-1 then
+			if item_index == 1 or item_index > 11 then
 				self.container:visible(false)
 			else
 				self.container:visible(true)
@@ -205,13 +213,13 @@ local song_mt = {
 
 			-- top row
 			if item_index < middle_index  then
-					self.container:y( 50*item_index ):x(_screen.w/1.5+25*(middle_index-item_index) )
+					self.container:y( 47*item_index ):x(_screen.w/1.5+25*(middle_index-item_index) )
 			-- bottom row
 			elseif item_index > middle_index then
-					self.container:y( 50*item_index ):x(_screen.w/1.5+25*(item_index-middle_index))
+					self.container:y( 47*item_index ):x(_screen.w/1.5+25*(item_index-middle_index))
 			-- center row
 			elseif item_index == middle_index then
-				self.container:y( 50*item_index ):x( _screen.w/1.5+25 )
+				self.container:y( 47*item_index ):x( _screen.w/1.5+25 )
 
 			end
 		end,
@@ -229,9 +237,9 @@ local song_mt = {
 				self.index = item.index
 				if SL.Global.Order == "Difficulty/BPM" then
 					local block = GetDifficultyBPM(item.index)
-					self.title_bmt:settext( "["..block.difficulty.."]["..math.floor(block.bpm).."] "..self.song:GetDisplayMainTitle() ):Truncate(max_chars)
+					self.title_bmt:settext( "["..block.difficulty.."]["..math.floor(block.bpm).."] "..self.song:GetDisplayMainTitle() )
 				else
-					self.title_bmt:settext( self.song:GetDisplayMainTitle() ):Truncate(max_chars)
+					self.title_bmt:settext( self.song:GetDisplayMainTitle() )
 				end
 
 			end

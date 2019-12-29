@@ -18,6 +18,7 @@ local PaneItems = {}
 
 local InitializeMeasureCounterAndModsLevel = LoadActor("./MeasureCounterAndModsLevel.lua")
 
+--TODO figure out how to change this if a second player joins
 local histogramHeight = 40
 if not ThemePrefs.Get("ShowExtraSongInfo") then histogramHeight = 30 end --the grid takes a little more space so shrink the histogram a bit
 
@@ -27,6 +28,7 @@ local InitializeDensity = NPS_Histogram(player, 275, histogramHeight)..{
 			:y( _screen.h/3.5+6)
 	end
 }
+
 PaneItems[THEME:GetString("RadarCategory","Taps")] = {
 	-- "rc" is RadarCategory
 	rc = 'RadarCategory_TapsAndHolds',
@@ -144,21 +146,32 @@ local af = Def.ActorFrame{
 	Name="PaneDisplay"..ToEnumShortString(player),
 	InitCommand=function(self)
 		self:visible(GAMESTATE:IsHumanPlayer(player))
+		--TODO for now if there's only one player their pane display is on the left. We only put things on the right if two people are joined
+		if GAMESTATE:GetNumSidesJoined() ~= 2 then
+			self:x(_screen.w * 0.25 - 5)
+		else
+			if player == PLAYER_1 then
+				self:x(_screen.w * 0.25 - 5)
+			elseif player == PLAYER_2 then
+				self:x( _screen.w * 0.75 + 5)
+			end
+		end
 
+		self:y(_screen.cy + 5)
+	end,
+	--we want to set both players when someone joins because we might need to bring the grid back and hide the stream info
+	--TODO change this if we can get both players to see stream info
+	PlayerJoinedMessageCommand=function(self, params)
+		--if player==params.Player then
 		if player == PLAYER_1 then
 			self:x(_screen.w * 0.25 - 5)
 		elseif player == PLAYER_2 then
 			self:x( _screen.w * 0.75 + 5)
 		end
-
-		self:y(_screen.cy + 5)
-	end,
-	PlayerJoinedMessageCommand=function(self, params)
-		if player==params.Player then
-			self:visible(true)
-				:zoom(0):croptop(0):bounceend(0.3):zoom(1)
-				:playcommand("Set")
-		end
+		self:visible(true)
+			:zoom(0):croptop(0):bounceend(0.3):zoom(1)
+			:playcommand("Set")
+		--end
 	end,
 	PlayerUnjoinedMessageCommand=function(self, params)
 		if player==params.Player then
@@ -169,12 +182,10 @@ local af = Def.ActorFrame{
 	-- These playcommand("Set") need to apply to the ENTIRE panedisplay
 	-- (all its children) so declare each here
 	OnCommand=cmd(queuecommand,"Set"),
-	CurrentSongChangedMessageCommand=cmd(queuecommand,"Set"),
 	CurrentCourseChangedMessageCommand=cmd(queuecommand,"Set"),
 	StepsHaveChangedMessageCommand=cmd(queuecommand,"Set"),
 	SetCommand=function(self)
 		local machine_score, machine_name, machine_date = GetNameAndScoreAndDate( PROFILEMAN:GetMachineProfile() )
-
 		self:GetChild("MachineHighScore"):settext(machine_score)
 		self:GetChild("MachineHighScoreName"):settext(machine_name):diffuse({0,0,0,1})
 		self:GetChild("MachineHighScoreDate"):settext(FormatDate(machine_date))
@@ -188,8 +199,19 @@ local af = Def.ActorFrame{
 
 			DiffuseEmojis(self, player_name)
 		end
-		-- ---------------------Extra Song Information------------------------------------------
-		if not GAMESTATE:IsCourseMode() and GAMESTATE:GetCurrentSteps(player) and song and ThemePrefs.Get("ShowExtraSongInfo")then
+	end,
+	--hide everything when left or right is held down for more than a couple songs
+	BeginScrollingMessageCommand=function(self)
+		self:linear(.3):diffusealpha(0)
+	end,
+	-- This is set separately because it lags SM if players hold down left or right (to scroll quickly). LessLag will trigger after .15 seconds
+	-- with no new song changes.
+	LessLagMessageCommand=function(self)
+			-- ---------------------Extra Song Information------------------------------------------
+		--TODO right now we don't show any of this if two players are joined. I'd like to find a way for both to see it
+		self:linear(.3):diffusealpha(1)
+		local song = GAMESTATE:GetCurrentSong()
+		if not GAMESTATE:IsCourseMode() and GAMESTATE:GetCurrentSteps(player) and song and ThemePrefs.Get("ShowExtraSongInfo") and GAMESTATE:GetNumSidesJoined() < 2 then
 			InitializeMeasureCounterAndModsLevel(player)
 			if SL[pn].Streams.Measures then --used to be working without this... not sure what changed but don't run any of this stuff if measures is not filled in
 				local lastSequence = #SL[pn].Streams.Measures
@@ -246,7 +268,6 @@ local af = Def.ActorFrame{
 				finalText = math.floor(finalText*100)/100 --truncate to two decimals
 				self:GetChild("AvgNps"):settext(finalText)
 				self:GetChild("AvgNpsLabel"):settext("AVG NPS")
-		
 			else
 				self:GetChild("Measures"):settext("")
 				self:GetChild("TotalStream"):settext("")
@@ -254,8 +275,22 @@ local af = Def.ActorFrame{
 				self:GetChild("AvgNpsLabel"):settext("")
 				self:GetChild("AvgNps"):settext("")
 			end
+		else
+			self:GetChild("Measures"):settext("")
+			self:GetChild("TotalStream"):settext("")
+			self:GetChild("PeakNPS"):settext("")
+			self:GetChild("AvgNpsLabel"):settext("")
+			self:GetChild("AvgNps"):settext("")
 		end
-	end
+	end,
+	--TODO part of the pane that gets hidden if two players are joined. i'd like to display this somewhere though
+	PeakNPSUpdatedMessageCommand=function(self, params)
+		if GAMESTATE:GetCurrentSong() and SL['P1'].NoteDensity.Peak and ThemePrefs.Get("ShowExtraSongInfo") and GAMESTATE:GetNumSidesJoined() < 2 then
+			self:GetChild("PeakNPS"):settext( THEME:GetString("ScreenGameplay", "PeakNPS") .. ": " .. round(SL['P1'].NoteDensity.Peak * SL.Global.ActiveModifiers.MusicRate,2))
+		else
+			self:GetChild("PeakNPS"):settext( "" )
+		end
+	end,
 }
 
 -- colored background for chart statistics
@@ -359,12 +394,6 @@ af[#af+1] = LoadFont("Common Normal")..{
 af[#af+1] = LoadFont("Common Normal")..{
 	Name="PeakNPS",
 	InitCommand=cmd(xy, _screen.w/2 - 500, _screen.h/8 - 30; zoom, zoom_factor; diffuse, Color.White; halign, 0),
-	PeakNPSUpdatedMessageCommand=function(self, params) --TODO: this only works for P1
-		if GAMESTATE:GetCurrentSong() and SL['P1'].NoteDensity.Peak and ThemePrefs.Get("ShowExtraSongInfo") then
-			self:settext( THEME:GetString("ScreenGameplay", "PeakNPS") .. ": " .. round(SL['P1'].NoteDensity.Peak * SL.Global.ActiveModifiers.MusicRate,2) )
-
-		end
-	end 
 }
 
 --AVG NPS label
@@ -389,34 +418,6 @@ af[#af+1] = LoadFont("Common Normal")..{
 af[#af+1] = LoadFont("Common Normal")..{
 	Name="Measures",
 	InitCommand=cmd(xy, _screen.w/2 - 500, _screen.h/8 - 10; zoom, zoom_factor; diffuse, Color.White; halign, 0; maxwidth, 315)
-}
-
-		
--- colored background for pass statistics
--- TODO figure out what to put here
---------------------Actor Frame to put all the tags------------------------------
-local tagAF = Def.ActorFrame{
-	InitCommand=function(self)
-		self:xy(_screen.w/3 - 450, _screen.h/14 - 10)
-	end,
-	Def.Quad{
-		Name="BackgroundQuad",
-		InitCommand=function(self)
-			self:zoomto(_screen.w/8, _screen.h/3 + 20)
-		end,
-		SetCommand=function(self, params)
-			if GAMESTATE:IsHumanPlayer(player) then
-				local StepsOrTrail = GAMESTATE:IsCourseMode() and GAMESTATE:GetCurrentTrail(player) or GAMESTATE:GetCurrentSteps(player)
-
-				if StepsOrTrail then
-					local difficulty = StepsOrTrail:GetDifficulty()
-					self:diffuse( DifficultyColor(difficulty) )
-				else
-					self:diffuse( PlayerColor(player) )
-				end
-			end
-		end
-	},
 }
 
 if not GAMESTATE:IsCourseMode() then af[#af+1] =  InitializeDensity end

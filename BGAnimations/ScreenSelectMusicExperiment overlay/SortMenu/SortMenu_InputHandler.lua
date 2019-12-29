@@ -2,10 +2,10 @@ local sort_wheel = ...
 
 -- this handles user input while in the SortMenu
 local function input(event)
+	SOUND:StopMusic()
 	if not (event and event.PlayerNumber and event.button) then
 		return false
 	end
-	SOUND:StopMusic()
 
 	local screen   = SCREENMAN:GetTopScreen()
 	local overlay  = screen:GetChild("Overlay")
@@ -39,8 +39,7 @@ local function input(event)
 				screen:SetNextScreenName("ScreenFilterOptions")
 				screen:StartTransitioningScreen("SM_GoToNextScreen")
 			elseif focus.kind == "Text" then
-				SM("Add search function")
-				overlay:queuecommand("DirectInputToEngine")
+				sortmenu:queuecommand("DirectInputToSearchMenu")
 			elseif focus.new_overlay then
 				if focus.new_overlay == "TestInput" then
 					sortmenu:queuecommand("DirectInputToTestInput")
@@ -48,6 +47,8 @@ local function input(event)
 					overlay:queuecommand("DirectInputToTagMenu")
 				elseif focus.new_overlay == "Order" then
 					overlay:queuecommand("DirectInputToOrderMenu")
+				elseif focus.new_overlay == "Sort" then
+					sortmenu:playcommand("SwitchToSort")
 				end
 			end
 

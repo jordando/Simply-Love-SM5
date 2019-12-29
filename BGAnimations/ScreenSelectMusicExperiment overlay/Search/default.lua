@@ -3,6 +3,48 @@ scrollers[PLAYER_1] = setmetatable({disable_wrapping=true}, sick_wheel_mt)
 scrollers[PLAYER_2] = setmetatable({disable_wrapping=true}, sick_wheel_mt)
 
 local mpn = GAMESTATE:GetMasterPlayerNumber()
+
+local TextEntrySettings = {
+	-- ScreenMessage to send on pop (optional, "SM_None" if omitted)
+	--SendOnPop = "",
+
+	-- The question to display
+	Question = "Search:",
+	
+	-- Initial answer text
+	InitialAnswer = "",
+	
+	-- Maximum amount of characters
+	MaxInputLength = 30,
+	
+	--Password = false,	
+	
+	-- Validation function; function(answer, errorOut), must return boolean, string.
+	Validate = function(answer, errorOut)
+		return true, answer
+	end,
+	
+	-- On OK; function(answer)
+	OnOK = function(answer)
+		if answer == "" then MESSAGEMAN:Broadcast("FinishText") --if players who don't have a keyboard get here they can just hit enter to cancel out
+		else
+			MESSAGEMAN:Broadcast("SetSearchWheel",{searchTerm=answer})
+			MESSAGEMAN:Broadcast("ChooseResults")
+		end
+	end,
+	
+	-- On Cancel; function()
+	OnCancel = function()
+		--MESSAGEMAN:Broadcast("FinishText")
+	end,
+	
+	-- Validate appending a character; function(answer,append), must return boolean
+	ValidateAppend = nil,
+	
+	-- Format answer for display; function(answer), must return string
+	FormatAnswerForDisplay = nil,
+}
+
 -- ----------------------------------------------------
 local invalid_count = 0
 local t = Def.ActorFrame {
@@ -14,18 +56,22 @@ local t = Def.ActorFrame {
 	-- which causes the sick_wheel of profile names to not display.  I don't have time to debug it right now.
 	InitCommand=function(self)
 		self:visible(false)
-		orderMenu_input = LoadActor("./Input.lua", {af=self, Scrollers=scrollers})
+		searchMenu_input = LoadActor("./Input.lua", {af=self, Scrollers=scrollers})
 	end,
-	DirectInputToOrderMenuMessageCommand=function(self) self:queuecommand("Stall") end,
-	StallCommand=function(self) 
-		self:visible(true):sleep(0.25):queuecommand("CaptureTest")
+	ChooseResultsMessageCommand=function(self) 
+		self:visible(true):sleep(0.5):queuecommand("CaptureTest")
 	end,
-	CaptureTestCommand=function(self) SCREENMAN:GetTopScreen():AddInputCallback( orderMenu_input ) end,
-
+	CaptureTestCommand=function(self) 
+		SCREENMAN:GetTopScreen():AddInputCallback( searchMenu_input ) 
+	end,
+	BeginSearchMessageCommand=function(self)
+		SCREENMAN:AddNewScreenToTop("ScreenTextEntry")
+		SCREENMAN:GetTopScreen():Load(TextEntrySettings)
+	end,
 	-- the OffCommand will have been queued, when it is appropriate, from ./Input.lua
 	-- sleep for 0.5 seconds to give the PlayerFrames time to tween out
 	-- and queue a call to Finish() so that the engine can wrap things up
-	OffCommand=function(self)
+	OffCommand=function(self)			
 		self:sleep(0.5):queuecommand("Finish")
 	end,
 	FinishTextMessageCommand=function(self)
@@ -35,7 +81,7 @@ local t = Def.ActorFrame {
 		self:visible(false)
 		local screen   = SCREENMAN:GetTopScreen()
 		local overlay  = screen:GetChild("Overlay")
-		screen:RemoveInputCallback( orderMenu_input)
+		screen:RemoveInputCallback( searchMenu_input)
 		overlay:queuecommand("DirectInputToEngine")
 	end,
 	WhatMessageCommand=function(self) self:runcommandsonleaves(function(subself) if subself.distort then subself:distort(0.5) end end):sleep(4):queuecommand("Undistort") end,
@@ -70,11 +116,11 @@ local t = Def.ActorFrame {
 
 -- top mask
 t[#t+1] = Def.Quad{
-	InitCommand=function(self) self:horizalign(left):vertalign(bottom):setsize(540,50):xy(_screen.cx-self:GetWidth()/2, _screen.cy-110):MaskSource() end
+	InitCommand=function(self) self:horizalign(left):vertalign(bottom):setsize(580,50):xy(_screen.cx-self:GetWidth()/2, _screen.cy-110):MaskSource() end
 }
 -- bottom mask
 t[#t+1] = Def.Quad{
-	InitCommand=function(self) self:horizalign(left):vertalign(top):setsize(540,120):xy(_screen.cx-self:GetWidth()/2, _screen.cy+111):MaskSource() end
+	InitCommand=function(self) self:horizalign(left):vertalign(top):setsize(580,120):xy(_screen.cx-self:GetWidth()/2, _screen.cy+111):MaskSource() end
 }
 
 --TODO we don't have two players for now

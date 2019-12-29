@@ -12,7 +12,7 @@ local max_chars = 64
 local path = "/"..THEME:GetCurrentThemeDirectory().."Graphics/_FallbackBanners/"..ThemePrefs.Get("VisualTheme")
 local banner_directory = FILEMAN:DoesFileExist(path) and path or THEME:GetPathG("","_FallbackBanners/Arrows")
 
-local switch_to_songs = function(group_name)
+switch_to_songs = function(group_name)
 	local songs = PruneSongList(GetSongList(group_name))
 	if SL.Global.Order == "Difficulty/BPM" then
 		local newList = CreateSpecialSongList(songs)
@@ -74,6 +74,7 @@ local item_mt = {
 						-- slide the chosen Actor into place
 						subself:queuecommand("SlideToTop")
 						MESSAGEMAN:Broadcast("SwitchFocusToSongs")
+						MESSAGEMAN:Broadcast("LessLag")
 					else
 						-- hide everything else
 						subself:linear(0.2):diffusealpha(0)
@@ -100,7 +101,6 @@ local item_mt = {
 					       :linear( 0.12 ):zoom( 0.9 ):y( _screen.cy-100 )
 				end,
 				SwitchCommand=function(subself) switch_to_songs(self.groupName) end,
-			
 
 				-- back of folder
 				LoadActor("./img/folderBack.png")..{
@@ -203,11 +203,9 @@ local item_mt = {
 		set = function(self, groupName)
 
 			self.groupName = groupName
-
 			-- handle text
 			-- group name to display is not necessarily the same so check in SL-GroupHelpers
 			self.bmt:settext(GetGroupDisplayName(self.groupName)):Truncate(max_chars)
-			
 
 			-- handle banner
 			self.banner:LoadFromSongGroup(self.groupName):playcommand("On")
