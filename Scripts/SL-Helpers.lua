@@ -420,8 +420,7 @@ SetGameModePreferences = function()
 		ITG = "",
 		["FA+"] = "ECFA-",
 		StomperZ = "StomperZ-",
-		Casual = "Casual-",
-		Experiment = "",
+		Casual = "Casual-"
 	}
 
 	if PROFILEMAN:GetStatsPrefix() ~= prefix[SL.Global.GameMode] then

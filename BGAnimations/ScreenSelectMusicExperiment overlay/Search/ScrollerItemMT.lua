@@ -9,10 +9,8 @@ return {
 				Name=name,
 				InitCommand=function(subself)
 					self.container = subself
-					subself:diffusealpha(0):visible(false)
+					subself:diffusealpha(1):visible(true)
 				end,
-				OnCommand=function(subself) subself:sleep(0.2):queuecommand("Appear") end,
-				AppearCommand=function(subself) subself:visible(true):linear(0.15):diffusealpha(1) end,
 
 				LoadFont("Common Normal")..{
 					InitCommand=function(subself)

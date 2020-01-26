@@ -91,41 +91,48 @@ local t = Def.ActorFrame {
 		SCREENMAN:GetTopScreen():AddInputCallback( Input.Handler )
 		-- set up initial variable states and the players' OptionRows
 		Input:Init()
-
 		-- It should be safe to enable input for players now
-		self:queuecommand("EnableInput")
+		self:queuecommand("EnableMainInput")
 	end,
 	-- a hackish solution to prevent users from button-spamming and breaking input :O
 	SwitchFocusToSongsMessageCommand=function(self)
-		self:sleep(TransitionTime):queuecommand("EnableInput")
+		self:stoptweening():sleep(TransitionTime):queuecommand("EnableMainInput")
 	end,
 	SwitchFocusToGroupsMessageCommand=function(self)
-		self:sleep(TransitionTime):queuecommand("EnableInput")
+		self:stoptweening():sleep(TransitionTime):queuecommand("EnableMainInput")
 	end,
 	SwitchFocusToSingleSongMessageCommand=function(self)
 		setup.InitOptionRowsForSingleSong()
-		self:sleep(TransitionTime):queuecommand("EnableInput")
+		self:stoptweening():sleep(TransitionTime):queuecommand("EnableMainInput")
 	end,													  
-	EnableInputCommand=function(self)
+	EnableMainInputCommand=function(self)
 		Input.Enabled = true
 	end,
-	-- Called by SongMT when changing songs. Updating the histogram and the stream breakdown lags SM if players hold down left or right 
-	-- and the wheel scrolls too quickly. To alleviate this, instead of using CurrentSongChanged, we wait for .08 seconds to have
-	-- passed without changing songs before broadcasting "LessLag" which PaneDisplay receives. 
-	BeginSongTransitionMessageCommand=function(self)
-		scroll = scroll + 1
-		if scroll > 3 and not SL.Global.Scrolling then SL.Global.Scrolling = true MESSAGEMAN:Broadcast("BeginScrolling") end
-		timeToGo = GetTimeSinceStart() - SL.Global.TimeAtSessionStart + .08 --TODO on especially laggy computers these numbers don't work
-		self:sleep(.15):queuecommand("FinishSongTransition")
-	end,
-	FinishSongTransitionMessageCommand=function(self)
-		if (GetTimeSinceStart() - SL.Global.TimeAtSessionStart) > timeToGo and SL.Global.SongTransition then
-			scroll = 0
-			SL.Global.Scrolling = false
-			SL.Global.SongTransition=false
-			MESSAGEMAN:Broadcast("LessLag")
+	
+	--Wrap this in an actor so stoptweening doesn't affect everything else
+	Def.Actor{
+		-- Called by SongMT when changing songs. Updating the histogram and the stream breakdown lags SM if players hold down left or right 
+		-- and the wheel scrolls too quickly. To alleviate this, instead of using CurrentSongChanged, we wait for .08 seconds to have
+		-- passed without changing songs before broadcasting "LessLag" which PaneDisplay receives. 
+		BeginSongTransitionMessageCommand=function(self)
+			self:stoptweening()	--TODO if you press enter while holding left or right you can break input
+			scroll = scroll + 1
+			if scroll > 3 then
+				if not SL.Global.Scrolling then SL.Global.Scrolling = true MESSAGEMAN:Broadcast("BeginScrolling") end
+			end
+			timeToGo = GetTimeSinceStart() - SL.Global.TimeAtSessionStart + .08 --TODO on especially laggy computers these numbers don't work
+			self:sleep(.15):queuecommand("FinishSongTransition")
+		end,
+		FinishSongTransitionMessageCommand=function(self)
+			if (GetTimeSinceStart() - SL.Global.TimeAtSessionStart) > timeToGo and SL.Global.SongTransition then
+				self:stoptweening()
+				scroll = 0
+				SL.Global.Scrolling = false
+				SL.Global.SongTransition=false
+				MESSAGEMAN:Broadcast("LessLag")
+			end
 		end
-	end,
+	},
 	--if we choose a song in Search then we want to jump straight to it even if we're on the group wheel
 	SetSongViaSearchMessageCommand=function(self)
 		if Input.WheelWithFocus == GroupWheel then --going from group to song
@@ -161,13 +168,12 @@ local t = Def.ActorFrame {
 	--All of this stuff is put in an AF because we hide and show it together
 	--Information about the song - including the grid/stream info, nps histogram, and step information
 	Def.ActorFrame{
-		OnCommand = function(self) self:queuecommand("Show") end,
-		SwitchFocusToGroupsMessageCommand=function(self) self:queuecommand("Hide") end,
-		SwitchFocusToSingleSongMessageCommand=function(self) self:queuecommand("Hide") end,
-		SwitchFocusToSongsMessageCommand = function(self) self:queuecommand("Show") end,
-		CloseThisFolderHasFocusMessageCommand = function(self) self:queuecommand("Hide") end, --don't display any of this when we're on the close folder item
-		CurrentSongChangedMessageCommand = function(self) --brings things back after CloseThisFolderHasFocusMessageCommand runs
-			if self:GetDiffuseAlpha() == 0 and Input.WheelWithFocus == SongWheel then self:queuecommand("Show") end end,
+		SwitchFocusToGroupsMessageCommand=function(self) self:stoptweening():queuecommand("Hide") end,
+		SwitchFocusToSingleSongMessageCommand=function(self) self:stoptweening():queuecommand("Hide") end,
+		SwitchFocusToSongsMessageCommand = function(self) self:stoptweening():queuecommand("Show") end,
+		CloseThisFolderHasFocusMessageCommand = function(self) self:stoptweening():queuecommand("Hide") end, --don't display any of this when we're on the close folder item
+		CurrentSongChangedMessageCommand = function(self, params) --brings things back after CloseThisFolderHasFocusMessageCommand runs
+			if params.song and self:GetDiffuseAlpha() == 0 and Input.WheelWithFocus == SongWheel then self:stoptweening():queuecommand("Show") end end,
 		CurrentCourseChangedMessageCommand = function(self)  end,
 		HideCommand = function(self) self:linear(.3):diffusealpha(0):visible(false) end,
 		ShowCommand = function(self) self:visible(true):linear(.3):diffusealpha(1) end,
@@ -213,7 +219,7 @@ local t = Def.ActorFrame {
 	end,
 	-- Broadcast when coming out of the Sort Menu.
 	DirectInputToEngineMessageCommand=function(self)
-		self:playcommand("EnableInput")
+		self:queuecommand("EnableMainInput")
 		if Input.WheelWithFocus == SongWheel then
 			play_sample_music()
 		end
@@ -310,11 +316,11 @@ t[#t+1] = Def.Quad{
 
 t[#t+1] = LoadFont("Common Normal")..{
 		Name="TextDisplay",
-		Text=THEME:GetString("ScreenSelectMusic", "Press Start for Options"),
+		Text=THEME:GetString("ScreenSelectMusicExperiment", "Press Start for Options"),
 		InitCommand=function(self) self:visible(false):Center():zoom(1):diffusealpha(0) end,
 		ShowPressStartForOptionsCommand=function(self) self:hibernate(.3):visible(true):linear(0.3):diffusealpha(1) end,
 		ShowEnteringOptionsCommand=function(self) self:linear(0.125):diffusealpha(0):queuecommand("NewText") end,
-		NewTextCommand=function(self) self:hibernate(0.1):settext(THEME:GetString("ScreenSelectMusic", "Entering Options...")):linear(0.125):diffusealpha(1):sleep(1) end
+		NewTextCommand=function(self) self:hibernate(0.1):settext(THEME:GetString("ScreenSelectMusicExperiment", "Entering Options...")):linear(0.125):diffusealpha(1):sleep(1) end
 }
 
 return t

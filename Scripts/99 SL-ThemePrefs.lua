@@ -1,17 +1,5 @@
 local SL_CustomPrefs =
 {
-	ShowExtraSongInfo =
-		{
-		Default = false,
-		Choices = { THEME:GetString("ThemePrefs","Yes"), THEME:GetString("ThemePrefs", "No") },
-		Values 	= { true, false }
-	},
-	AllowTwoTap = 
-		{
-		Default = false,
-		Choices = { THEME:GetString("ThemePrefs","Yes"), THEME:GetString("ThemePrefs", "No") },
-		Values = { true, false }
-	},
 	AllowFailingOutOfSet =
 	{
 		Default = true,
@@ -51,10 +39,8 @@ local SL_CustomPrefs =
 			THEME:GetString("ScreenSelectPlayMode", "ITG"),
 			THEME:GetString("ScreenSelectPlayMode", "FA+"),
 			THEME:GetString("ScreenSelectPlayMode", "StomperZ"),
-			THEME:GetString("ScreenSelectPlayMode", "Experiment"),
-
 		},
-		Values 	= { "Casual", "ITG", "FA+", "StomperZ", "Experiment", }
+		Values 	= { "Casual", "ITG", "FA+", "StomperZ" }
 	},
 	AutoStyle =
 	{
@@ -134,12 +120,6 @@ local SL_CustomPrefs =
 
 	-- - - - - - - - - - - - - - - - - - - -
 	-- Enable/Disable Certain Screens
-	GoStraightToGameplay = 
-	{
-		Default = false,
-		Choices = { THEME:GetString("ThemePrefs","Yes"), THEME:GetString("ThemePrefs", "No") },
-		Values 	= { true, false }
-	},
 	AllowScreenSelectProfile =
 	{
 		Default = false,
@@ -174,8 +154,8 @@ local SL_CustomPrefs =
 	-- Casual GameMode Settings
 	CasualMaxMeter = {
 		Default = 10,
-		Choices = range(5, 20, 1),
-		Values = range(5, 20, 1)
+		Choices = range(5, 15, 1),
+		Values = range(5, 15, 1)
 	},
 
 	-- - - - - - - - - - - - - - - - - - - -

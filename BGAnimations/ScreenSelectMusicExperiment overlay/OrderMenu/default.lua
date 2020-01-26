@@ -6,9 +6,6 @@ local mpn = GAMESTATE:GetMasterPlayerNumber()
 -- ----------------------------------------------------
 local invalid_count = 0
 local t = Def.ActorFrame {
-
-	ShowCustomSongMenuCommand=function(self) self:visible(true) end,
-	HideCustomSongMenuCommand=function(self) self:visible(false) end,	
 	-- FIXME: stall for 0.5 seconds so that the Lua InputCallback doesn't get immediately added to the screen.
 	-- It's otherwise possible to enter the screen with MenuLeft/MenuRight already held and firing off events,
 	-- which causes the sick_wheel of profile names to not display.  I don't have time to debug it right now.
@@ -16,7 +13,7 @@ local t = Def.ActorFrame {
 		self:visible(false)
 		orderMenu_input = LoadActor("./Input.lua", {af=self, Scrollers=scrollers})
 	end,
-	DirectInputToOrderMenuMessageCommand=function(self) self:queuecommand("Stall") end,
+	DirectInputToOrderMenuCommand=function(self) self:playcommand("ShowOrderMenu"):queuecommand("Stall") end,
 	StallCommand=function(self) 
 		self:visible(true):sleep(0.25):queuecommand("CaptureTest")
 	end,
@@ -77,16 +74,7 @@ t[#t+1] = Def.Quad{
 	InitCommand=function(self) self:horizalign(left):vertalign(top):setsize(540,120):xy(_screen.cx-self:GetWidth()/2, _screen.cy+111):MaskSource() end
 }
 
---TODO we don't have two players for now
---[[ load PlayerFrames for both
-if AutoStyle=="none" or AutoStyle=="versus" then
-	t[#t+1] = LoadActor("PlayerFrame.lua", {Player=PLAYER_1, Scroller=scrollers[PLAYER_1]})
-	t[#t+1] = LoadActor("PlayerFrame.lua", {Player=PLAYER_2, Scroller=scrollers[PLAYER_2]})
-
--- load only for the MasterPlayerNumber
-else
---]]
-	t[#t+1] = LoadActor("PlayerFrame.lua", {Player=mpn, Scroller=scrollers[mpn]})
---end
+-- Both players will use the same menu so just load for master player number.
+t[#t+1] = LoadActor("PlayerFrame.lua", {Player=mpn, Scroller=scrollers[mpn]})
 
 return t

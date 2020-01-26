@@ -7,22 +7,20 @@ local mpn = GAMESTATE:GetMasterPlayerNumber()
 local Handle = {}
 
 -- When the player hits start on the searchResults menu they want to jump to the song/group or exit
+-- TODO Right now this will always jump to the song wheel. If we're on the group wheel I'd prefer it stays there
 Handle.Start = function(event)
 	local topscreen = SCREENMAN:GetTopScreen()
 	if GAMESTATE:IsHumanPlayer(event.PlayerNumber) then
-		-- first figure out which group we're dealing with
-		local info = scrollers[event.PlayerNumber]:get_info_at_focus_pos()
-		if info.type == "song" and GAMESTATE:GetCurrentSong() ~= info.song then
-			GAMESTATE:SetCurrentSong(info.song)
-			MESSAGEMAN:Broadcast("SetSongViaSearch") --heard by ScreenSelectMusicExperiment default.lua. Closes the group folder if we're on it
-		end
-		if info.group ~= "nothing" then
-			switch_to_songs(info.group)
+		local info = scrollers[mpn]:get_info_at_focus_pos()
+		if info.type == "group" then GAMESTATE:SetCurrentSong(PruneSongList(GetSongList(info.group))[1])
+		elseif info.type == "song" and GAMESTATE:GetCurrentSong() ~= info.song then GAMESTATE:SetCurrentSong(info.song) end
+		if info.type ~= "exit" then
+			MESSAGEMAN:Broadcast("SetSongViaSearch") --heard by ScreenSelectMusicExperiment default.lua. Jumps straight into the song folder
 			SL.Global.CurrentGroup = info.group
 			MESSAGEMAN:Broadcast("GroupTypeChanged")
 		end
 		MESSAGEMAN:Broadcast("StartButton")
-		topscreen:queuecommand("Finish"):sleep(0.4)
+		topscreen:queuecommand("Off"):sleep(0.4)
 	end
 end
 
@@ -31,7 +29,7 @@ Handle.Center = Handle.Start
 
 Handle.MenuLeft = function(event)
 	if GAMESTATE:IsHumanPlayer(event.PlayerNumber) then
-		local info = scrollers[event.PlayerNumber]:get_info_at_focus_pos()
+		local info = scrollers[mpn]:get_info_at_focus_pos()
 		-- We add a bunch of empty rows to the table so that the first custom group is the default
 		-- and it's centered on the screen. We don't want to be able to scroll to them however.
 		-- To get around that, each actual group has an index parameter
@@ -39,8 +37,8 @@ Handle.MenuLeft = function(event)
 		local index = type(info)=="table" and info.index or 0
 		if index - 1 >= 4 then
 			MESSAGEMAN:Broadcast("DirectionButton")
-			scrollers[event.PlayerNumber]:scroll_by_amount(-1)
-			local frame = af:GetChild(ToEnumShortString(event.PlayerNumber) .. 'Frame')
+			scrollers[mpn]:scroll_by_amount(-1)
+			local frame = af:GetChild(ToEnumShortString(mpn) .. 'Frame')
 			frame:playcommand("Set", {index=index})
 		end
 	end
@@ -51,7 +49,7 @@ Handle.DownLeft = Handle.MenuLeft
 
 Handle.MenuRight = function(event)
 	if GAMESTATE:IsHumanPlayer(event.PlayerNumber) then
-		local info = scrollers[event.PlayerNumber]:get_info_at_focus_pos()
+		local info = scrollers[mpn]:get_info_at_focus_pos()
 		-- We add a bunch of empty rows to the table so that the first custom group is the default
 		-- and it's centered on the screen. We don't want to be able to scroll to them however.
 		-- To get around that, each actual item has an index parameter
@@ -59,8 +57,8 @@ Handle.MenuRight = function(event)
 		local index = type(info)=="table" and info.index or 0
 		if info.type ~= "exit" then
 			MESSAGEMAN:Broadcast("DirectionButton")
-			scrollers[event.PlayerNumber]:scroll_by_amount(1)
-			local frame = af:GetChild(ToEnumShortString(event.PlayerNumber) .. 'Frame')
+			scrollers[mpn]:scroll_by_amount(1)
+			local frame = af:GetChild(ToEnumShortString(mpn) .. 'Frame')
 			frame:playcommand("Set", {index=index+2})
 		end
 	end
@@ -75,7 +73,7 @@ Handle.Back = function(event)
 	if GAMESTATE:IsHumanPlayer(event.PlayerNumber) then
 		MESSAGEMAN:Broadcast("BackButton")
 		-- queue the Finish for the entire screen
-		topscreen:queuecommand("Finish"):sleep(0.4)
+		topscreen:queuecommand("Off"):sleep(0.4)
 	end
 end
 Handle.Select = Handle.Back

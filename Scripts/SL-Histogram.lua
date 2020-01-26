@@ -89,18 +89,10 @@ function NPS_Histogram(player, width, height)
 		InitCommand=function(self)
 			self:SetDrawState({Mode="DrawMode_QuadStrip"})
 		end,
-		-- we've reached a new song, so reset the vertices for the density graph
-		-- this will occur at the start of each new song in CourseMode
-		-- and at the start of "normal" gameplay. In Experiment mode we don'table
-		-- need this so just do nothing (not sure why SCREENMAN:GetTopScreen() returns nil
-		-- but it often does so here we are.
 		CurrentSongChangedMessageCommand=function(self)
-				if not SL.Global.ExperimentScreen then
-					self:playcommand("SetDensity")
-				end
-		end,
-		LessLagMessageCommand=function(self) self:playcommand("SetDensity") end,
-		SetDensityCommand=function(self)
+			-- we've reached a new song, so reset the vertices for the density graph
+			-- this will occur at the start of each new song in CourseMode
+			-- and at the start of "normal" gameplay
 			local verts = gen_vertices(player, width, height)
 			self:SetNumVertices(#verts):SetVertices(verts)
 		end
@@ -120,26 +112,18 @@ function Scrolling_NPS_Histogram(player, width, height)
 			self:SetDrawState({Mode="DrawMode_QuadStrip"})
 		end,
 		UpdateCommand=function(self)
-			--This is called by [ScreenGameplay underlay/PerPlayer/StepStatistics/DensityGraph.lua]
-			--Don't need to scale or scroll if we're on SelectMusicExperiment
-			if not SL.Global.ExperimentScreen then
-				if visible_verts ~= nil then
-					self:SetNumVertices(#visible_verts):SetVertices(visible_verts)
-					visible_verts = nil
-				end
+			if visible_verts ~= nil then
+				self:SetNumVertices(#visible_verts):SetVertices(visible_verts)
+				visible_verts = nil
 			end
 		end,
 
 		LoadCurrentSong=function(self, scaled_width)
-			--This is called by [ScreenGameplay underlay/PerPlayer/StepStatistics/DensityGraph.lua]
-			--Don't need to scale or scroll if we're on SelectMusicExperiment
-			if not SL.Global.ExperimentScreen then
-				verts = gen_vertices(player, scaled_width, height)
+			verts = gen_vertices(player, scaled_width, height)
 
-				left_idx = 1
-				right_idx = 2
-				self:SetScrollOffset(0)
-			end
+			left_idx = 1
+			right_idx = 2
+			self:SetScrollOffset(0)
 		end,
 		SetScrollOffset=function(self, offset)
 			local left_offset = offset

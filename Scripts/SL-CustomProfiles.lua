@@ -72,11 +72,6 @@ function LoadProfileCustom(profile, dir)
 			if profile_whitelist[k] and type(v)==profile_whitelist[k] then
 				SL[pn].ActiveModifiers[k] = v
 			end
-			-- TODO if SaveProfileCustom gets fixed this can be fixed too
-			-- these don't belong in active modifiers but we need to set it so Setup.lua can
-			-- pick up the default song.
-			if k == "LastSongPlayedName" then SL.Global.LastSongPlayedName = v end
-			if k == "LastSongPlayedGroup" then SL.Global.LastSongPlayedGroup = v end
 		end
 	end
 
@@ -97,11 +92,6 @@ function SaveProfileCustom(profile, dir)
 					output[k] = v
 				end
 			end
-			-- TODO maybe find a better place for this or get normal profile saving working
-			-- I can't figure out how to get ScreenSelectMusicExperiment to change profile:GetLastPlayedSong() so
-			-- instead I just write to Simply Love UserPrefs.ini so we can figure out where to come back in to.
-			output["LastSongPlayedName"] = GAMESTATE:GetCurrentSong():GetMainTitle()
-			output["LastSongPlayedGroup"] = GAMESTATE:GetCurrentSong():GetGroupName()
 			IniFile.WriteFile( path, {[theme_name]=output} )
 			break
 		end

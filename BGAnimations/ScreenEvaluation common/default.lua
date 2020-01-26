@@ -68,6 +68,7 @@ for player in ivalues(Players) do
 		-- Record Texts (Machine and/or Personal)
 		LoadActor("./PerPlayer/RecordTexts.lua", player)
 	}
+
 	-- the lower half of ScreenEvaluation
 	local lower = Def.ActorFrame{
 		Name=ToEnumShortString(player).."_AF_Lower",
@@ -76,7 +77,7 @@ for player in ivalues(Players) do
 			if GAMESTATE:GetCurrentStyle():GetStyleType() == "StyleType_OnePlayerTwoSides" then
 				self:x(_screen.cx)
 			else
-				self:x(_screen.cx + (player==PLAYER_1 and -155 or GAMESTATE:GetNumSidesJoined()==2 and 155 or -155))
+				self:x(_screen.cx + (player==PLAYER_1 and -155 or 155))
 			end
 		end,
 
@@ -109,27 +110,12 @@ for player in ivalues(Players) do
 		-- was this player disqualified from ranking?
 		LoadActor("./PerPlayer/Disqualified.lua", player),
 	}
-	--background quad for additional stats if we're in Experiment mode
-	if SL.Global.GameMode == "Experiment" then
-		lower[#lower+1] = Def.Quad{
-			InitCommand = function(self)
-				self:x(_screen.cx - 120):diffuse(color("#1E282F")):y(_screen.cy+34):zoomto( 300,180 )
-				if GAMESTATE:GetNumSidesJoined() == 2 then self:diffusealpha(0)
-				elseif ThemePrefs.Get("RainbowMode") then
-					self:diffusealpha(0.9)
-				end
-			end,
-		}
-	end
+
 	-- add available Panes to the lower ActorFrame via a loop
 	-- Note(teejusb): Some of these actors may be nil. This is not a bug, but
 	-- a feature for any panes we want to be conditional (e.g. the QR code).
 	for i=1, NumPanes do
-		if SL.Global.GameMode == "Experiment" and GAMESTATE:GetNumSidesJoined() == 1 then
-			lower[#lower+1] = LoadActor("./PerPlayer/ExperimentPane"..i, player)
-		else
-			lower[#lower+1] = LoadActor("./PerPlayer/Pane"..i, player)
-		end
+		lower[#lower+1] = LoadActor("./PerPlayer/Pane"..i, player)
 	end
 
 	-- add lower ActorFrame to the primary ActorFrame

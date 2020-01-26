@@ -1,10 +1,18 @@
-local player = ...
+local args = ...
+local player = args.player
+local hash = args.hash
 local pn = ToEnumShortString(player)
 local pss = STATSMAN:GetCurStageStats():GetPlayerStageStats(player)
 local whichHighScore = 1
-if STATSMAN:GetCurStageStats():GetPlayerStageStats('P1'):GetPersonalHighScoreIndex() == 0 then whichHighScore = 2 end
-local highScore = PROFILEMAN:GetProfile(0):GetHighScoreList(GAMESTATE:GetCurrentSong(),GAMESTATE:GetCurrentSteps(0)):GetHighScores()[whichHighScore]
+local highScore
 
+local RateScores = GetScores(player, hash, true) --See /scripts/Experiment-Scores.lua
+if RateScores then
+	if tonumber(RateScores[1].score) <= pss:GetPercentDancePoints() then whichHighScore = 2 end
+	if #RateScores < 2 and whichHighScore == 2 then highScore = RateScores[1]
+	else highScore = RateScores[whichHighScore] end
+end
+	
 local TapNoteScores = {
 	Types = { 'W1', 'W2', 'W3', 'W4', 'W5', 'Miss' },
 	-- x values for P1 and P2
@@ -27,17 +35,17 @@ local highScoreT = Def.ActorFrame{
 local deltaT = Def.ActorFrame{
 	InitCommand=function(self)self:zoom(0.8):xy(_screen.cx - 155,_screen.cy-24) end,
 }
-
 if highScore then
 	-- do "regular" TapNotes first
 	for i=1,#TapNoteScores.Types do
 		local window = TapNoteScores.Types[i]
-		local number = highScore:GetTapNoteScore( "TapNoteScore_"..window )
+		local number = highScore[window]
 
 		--delta between current stats and highscore stats
 		deltaT[#deltaT+1] = LoadFont("_wendy small")..{
 			InitCommand=function(self)
-				local toPrint = pss:GetTapNoteScores( "TapNoteScore_"..window ) - highScore:GetTapNoteScore( "TapNoteScore_"..window )
+				local toPrint
+				toPrint = pss:GetTapNoteScores( "TapNoteScore_"..window ) - highScore[window]
 				if toPrint >= 0 then self:settext("+"..toPrint)
 				else self:settext(toPrint) end
 				self:zoom(.5):horizalign(left)
@@ -98,8 +106,8 @@ if highScore then
 
 	-- then handle holds, mines, hands, rolls
 	for index, RCType in ipairs(RadarCategories.Types) do
-
-		local performance = highScore:GetRadarValues():GetValue( "RadarCategory_"..RCType )
+		local performance
+		performance = highScore[RCType]
 		-- player performace value
 		highScoreT[#highScoreT+1] = Def.RollingNumbers{
 			Font="_ScreenEvaluation numbers",
@@ -114,7 +122,7 @@ if highScore then
 	end
 	--Label for previous record or current record depending on if you got a new high score
 	highScoreT[#highScoreT+1] = LoadFont("_wendy small")..{
-		InitCommand=function(self)
+		InitCommand=function(self) --TODO setting text should go in a set command so we have time to determine whichhighscore
 			self:zoom(.8):xy(150,-75)
 			if whichHighScore == 2 then self:settext("Previous Record")
 			else self:settext("Current Record") end
@@ -128,7 +136,7 @@ if highScore then
 			self:xy(308,-10)
 		end
 	}
-	local PercentDP = highScore:GetPercentDP()
+	local PercentDP = highScore.score
 	local percent = FormatPercentScore(PercentDP)
 	-- Format the Percentage string, removing the % symbol
 	percent = percent:gsub("%%", "")
@@ -146,9 +154,9 @@ if highScore then
 	
 else
 	highScoreT[#highScoreT+1] = LoadFont("_wendy small")..{
-		Text="No previous score",
 		InitCommand=function(self)
 			self:zoom(.8):xy(55,-45)
+			self:settext("No previous score\nat Rate "..SL.Global.ActiveModifiers.MusicRate)
 		end,
 	}
 end

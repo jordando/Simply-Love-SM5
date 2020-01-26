@@ -29,7 +29,6 @@ local TextEntrySettings = {
 		if answer == "" then MESSAGEMAN:Broadcast("FinishText") --if players who don't have a keyboard get here they can just hit enter to cancel out
 		else
 			MESSAGEMAN:Broadcast("SetSearchWheel",{searchTerm=answer})
-			MESSAGEMAN:Broadcast("ChooseResults")
 		end
 	end,
 	
@@ -58,13 +57,13 @@ local t = Def.ActorFrame {
 		self:visible(false)
 		searchMenu_input = LoadActor("./Input.lua", {af=self, Scrollers=scrollers})
 	end,
-	ChooseResultsMessageCommand=function(self) 
+	SetSearchWheelMessageCommand=function(self) 
 		self:visible(true):sleep(0.5):queuecommand("CaptureTest")
 	end,
 	CaptureTestCommand=function(self) 
 		SCREENMAN:GetTopScreen():AddInputCallback( searchMenu_input ) 
 	end,
-	BeginSearchMessageCommand=function(self)
+	DirectInputToSearchMenuCommand=function(self)
 		SCREENMAN:AddNewScreenToTop("ScreenTextEntry")
 		SCREENMAN:GetTopScreen():Load(TextEntrySettings)
 	end,
@@ -123,16 +122,7 @@ t[#t+1] = Def.Quad{
 	InitCommand=function(self) self:horizalign(left):vertalign(top):setsize(580,120):xy(_screen.cx-self:GetWidth()/2, _screen.cy+111):MaskSource() end
 }
 
---TODO we don't have two players for now
---[[ load PlayerFrames for both
-if AutoStyle=="none" or AutoStyle=="versus" then
-	t[#t+1] = LoadActor("PlayerFrame.lua", {Player=PLAYER_1, Scroller=scrollers[PLAYER_1]})
-	t[#t+1] = LoadActor("PlayerFrame.lua", {Player=PLAYER_2, Scroller=scrollers[PLAYER_2]})
-
--- load only for the MasterPlayerNumber
-else
---]]
-	t[#t+1] = LoadActor("PlayerFrame.lua", {Player=mpn, Scroller=scrollers[mpn]})
---end
+-- Both players will share this so just set it based on master player number
+t[#t+1] = LoadActor("PlayerFrame.lua", {Player=mpn, Scroller=scrollers[mpn]})
 
 return t

@@ -171,7 +171,11 @@ local af = Def.ActorFrame{
 		self:visible(true)
 			:zoom(0):croptop(0):bounceend(0.3):zoom(1)
 			:playcommand("Set")
-		--end
+		self:GetChild("Measures"):settext("")
+		self:GetChild("TotalStream"):settext("")
+		self:GetChild("PeakNPS"):settext("")
+		self:GetChild("AvgNpsLabel"):settext("")
+		self:GetChild("AvgNps"):settext("")
 	end,
 	PlayerUnjoinedMessageCommand=function(self, params)
 		if player==params.Player then
@@ -181,19 +185,24 @@ local af = Def.ActorFrame{
 
 	-- These playcommand("Set") need to apply to the ENTIRE panedisplay
 	-- (all its children) so declare each here
-	OnCommand=cmd(queuecommand,"Set"),
-	CurrentCourseChangedMessageCommand=cmd(queuecommand,"Set"),
-	StepsHaveChangedMessageCommand=cmd(queuecommand,"Set"),
+	OnCommand=function(self) self:queuecommand("Set") end,
+	CurrentCourseChangedMessageCommand=function(self) self:queuecommand("Set") end,
+	StepsHaveChangedMessageCommand=function(self) self:queuecommand("Set") end,
 	SetCommand=function(self)
 		local machine_score, machine_name, machine_date = GetNameAndScoreAndDate( PROFILEMAN:GetMachineProfile() )
 		self:GetChild("MachineHighScore"):settext(machine_score)
 		self:GetChild("MachineHighScoreName"):settext(machine_name):diffuse({0,0,0,1})
 		self:GetChild("MachineHighScoreDate"):settext(FormatDate(machine_date))
 		DiffuseEmojis(self, machine_name)
-		local song = GAMESTATE:GetCurrentSong()
-		if PROFILEMAN:IsPersistentProfile(player) then
-			local player_score, player_name = GetNameAndScoreAndDate( PROFILEMAN:GetProfile(player) )
-
+		local player_score, player_name = "0.00%", "????"
+		if PROFILEMAN:IsPersistentProfile(player) and GAMESTATE:GetCurrentSong() then --if there's no song there won't be a hash
+			local hash = GetCurrentHash(player)
+			if hash and GetScores(player,hash) then
+				player_name = PROFILEMAN:GetProfile(player):GetDisplayName():upper()
+				player_score = FormatPercentScore(GetScores(player,hash)[1].score)
+			else --if we can't generate hashes (malformed SM/DWI/etc) we can't save scores so fallback on profile here
+				player_score, player_name = GetNameAndScoreAndDate( PROFILEMAN:GetProfile(player) )
+			end
 			self:GetChild("PlayerHighScore"):settext(player_score)
 			self:GetChild("PlayerHighScoreName"):settext(player_name):diffuse({0,0,0,1})
 
@@ -240,17 +249,13 @@ local af = Def.ActorFrame{
 					end
 				end	
 				if totalStreams == 0 then
-					if measureType == "None" then
-						self:GetChild("Measures"):settext("Stream Counter turned off")
-					else
-						self:GetChild("Measures"):settext("No stream")
-					end
+					self:GetChild("Measures"):settext(THEME:GetString("ScreenSelectMusicExperiment", "NoStream"))
 					self:GetChild("TotalStream"):settext("")
 				else
-					for stream in ivalues(split(breakdown2,"/")) do
+					for stream in ivalues(Split(breakdown2,"/")) do
 						local combine = 0
 						local multiple = false
-						for part in ivalues(split(stream,"-")) do
+						for part in ivalues(Split(stream,"-")) do
 							if combine ~= 0 then multiple = true end
 							combine = combine + tonumber(part)
 						end
@@ -258,7 +263,10 @@ local af = Def.ActorFrame{
 					end
 					local percent = totalStreams / streamsTable.Measures[lastSequence].streamEnd
 					percent = math.floor(percent*100)
-					self:GetChild("Measures"):settext("Total: "..totalStreams.." ("..percent.."%) (>="..measureType.." Note Stream)")
+					local toWrite = THEME:GetString("ScreenSelectMusicExperiment", "Total").." :"
+					toWrite = toWrite..totalStreams.." ("..percent.."%) (>="..measureType
+					toWrite = toWrite.." "..THEME:GetString("ScreenSelectMusicExperiment", "NoteStream")..")"
+					self:GetChild("Measures"):settext(toWrite)
 					if streamAmount > 15 then self:GetChild("TotalStream"):settext(string.sub(breakdown3,2))
 					else self:GetChild("TotalStream"):settext(string.sub(breakdown2,2)) end
 				end
@@ -267,9 +275,9 @@ local af = Def.ActorFrame{
 				local finalText = totalSteps / duration
 				finalText = math.floor(finalText*100)/100 --truncate to two decimals
 				self:GetChild("AvgNps"):settext(finalText)
-				self:GetChild("AvgNpsLabel"):settext("AVG NPS")
+				self:GetChild("AvgNpsLabel"):settext(THEME:GetString("ScreenSelectMusicExperiment", "AvgNps"))
 			else
-				self:GetChild("Measures"):settext("")
+				self:GetChild("Measures"):settext(THEME:GetString("ScreenSelectMusicExperiment", "StreamCounterOff"))
 				self:GetChild("TotalStream"):settext("")
 				self:GetChild("PeakNPS"):settext("")
 				self:GetChild("AvgNpsLabel"):settext("")
@@ -285,8 +293,8 @@ local af = Def.ActorFrame{
 	end,
 	--TODO part of the pane that gets hidden if two players are joined. i'd like to display this somewhere though
 	PeakNPSUpdatedMessageCommand=function(self, params)
-		if GAMESTATE:GetCurrentSong() and SL['P1'].NoteDensity.Peak and ThemePrefs.Get("ShowExtraSongInfo") and GAMESTATE:GetNumSidesJoined() < 2 then
-			self:GetChild("PeakNPS"):settext( THEME:GetString("ScreenGameplay", "PeakNPS") .. ": " .. round(SL['P1'].NoteDensity.Peak * SL.Global.ActiveModifiers.MusicRate,2))
+		if GAMESTATE:GetCurrentSong() and SL[pn].NoteDensity.Peak and ThemePrefs.Get("ShowExtraSongInfo") and GAMESTATE:GetNumSidesJoined() < 2 then
+			self:GetChild("PeakNPS"):settext( THEME:GetString("ScreenGameplay", "PeakNPS") .. ": " .. round(SL[pn].NoteDensity.Peak * SL.Global.ActiveModifiers.MusicRate,2))
 		else
 			self:GetChild("PeakNPS"):settext( "" )
 		end

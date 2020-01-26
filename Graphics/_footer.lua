@@ -15,8 +15,6 @@ return Def.Quad{
 	ScreenChangedMessageCommand=function(self)
 		if SCREENMAN:GetTopScreen():GetName() == "ScreenSelectMusicCasual" then
 			self:diffuse(dark)
-		elseif SCREENMAN:GetTopScreen():GetName() == "ScreenSelectMusicExperiment" then
-			self:diffuse(light)
 		end	
 	end
 }
